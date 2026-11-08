@@ -1,0 +1,25 @@
+{
+  "network": "testnet",
+  "root": "trusttrade-a5558a.testnet",
+  "contract": "escrow.trusttrade-a5558a.testnet",
+  "oracle": "oracle.trusttrade-a5558a.testnet",
+  "arbiter": "arbiter.trusttrade-a5558a.testnet",
+  "personas": {
+    "alice": "trusttrade-a5558a-alice.testnet",
+    "bob": "trusttrade-a5558a-bob.testnet",
+    "mallory": "trusttrade-a5558a-mallory.testnet"
+  },
+  "rp_id": "localhost",
+  "allowed_origins": [
+    "http://localhost:3000"
+  ],
+  "windows": {
+    "fund_window_sec": 600,
+    "ship_window_sec": 120,
+    "delivery_window_sec": 120,
+    "review_window_sec": 120
+  },
+  "deployed_at": "2026-11-08T11:46:01.088Z",
+  "deploy_tx": "2pioxug4G99ExJbpjybJDsCbkrPKs3hG7NdXVCYzBuHj",
+  "p256_live": true
+}

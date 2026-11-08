@@ -1,0 +1,12 @@
+# Build without cargo-near:
+#   cargo build --target wasm32-unknown-unknown --release
+# `--cfg near` makes near-sdk use the real on-chain host functions (this is what
+# cargo-near sets). Rust >= 1.87 emits bulk-memory opcodes, which nearcore accepts
+# since protocol version 84 (testnet/mainnet are on 88).
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=-s", "--cfg", "near"]
+
+[env]
+# near-sdk's unit-testing feature pulls aws-lc-sys; on Windows use its prebuilt
+# NASM objects so `cargo test` works without installing NASM.
+AWS_LC_SYS_PREBUILT_NASM = "1"

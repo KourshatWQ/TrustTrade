@@ -1,0 +1,41 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "contract:build": "tsx scripts/build-contract.ts",
+    "contract:test": "cd ../contract && cargo test",
+    "testnet:setup": "tsx scripts/testnet-setup.ts",
+    "contract:deploy": "tsx scripts/deploy-contract.ts",
+    "e2e:testnet": "tsx scripts/e2e-testnet.ts",
+    "oracle:deliver": "tsx scripts/oracle-sim.ts",
+    "negotiate": "tsx scripts/negotiate.ts",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "near-api-js": "^7.4.0",
+    "next": "16.4.5",
+    "openai": "^7.53.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "binaryen": "^132.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.5",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  }
+}
