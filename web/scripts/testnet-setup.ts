@@ -2,7 +2,8 @@
  * Creates every testnet account TrustTrade needs. Idempotent: re-running skips
  * accounts that already exist.
  *
- *   npm run testnet:setup
+ *   npm run testnet:setup            # create (or top up) the accounts in deployment/testnet.json
+ *   npm run testnet:setup -- --new   # fresh clone without the original keys: create your own set
  *
  * - Top-level accounts (root + demo personas) are created through the public NEAR
  *   testnet faucet helper, which funds them with testnet NEAR (no real value).
@@ -64,7 +65,15 @@ async function balance(id: string) {
 }
 
 async function main() {
-  const existing = loadDeployment();
+  const fresh = process.argv.includes("--new");
+  const existing = fresh ? null : loadDeployment();
+  if (existing && (await accountExists(existing.root)) && !loadCredential(existing.root)) {
+    throw new Error(
+      `deployment/testnet.json points at ${existing.root}, but its keys are not in .near-credentials/ on this machine.
+` +
+        `Run "npm run testnet:setup -- --new" to create your own testnet accounts (this rewrites deployment/testnet.json).`,
+    );
+  }
   const tag = existing?.root.replace(/^trusttrade-/, "").replace(/\.testnet$/, "") ?? crypto.randomBytes(3).toString("hex");
   const root = `trusttrade-${tag}.testnet`;
   console.log(`Credentials dir: ${CREDENTIALS_DIR}`);
