@@ -62,12 +62,26 @@ async function approve(p: Party, action: PasskeyAction, dealId: string, deal: { 
   return p.auth.sign(await challengeBytes(input));
 }
 
+/** RPC nodes behind a load balancer can lag a block or two behind a fresh account; wait until the key is visible. */
+async function waitForKey(accountId: string, publicKey: string) {
+  for (let i = 0; i < 20; i++) {
+    try {
+      await provider.viewAccessKey({ accountId, publicKey, finalityQuery: { finality: "final" } });
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+  throw new Error(`access key for ${accountId} never became visible`);
+}
+
 async function makeParty(tag: string, near: `${number}`): Promise<Party> {
   const prefix = `e2e${tag}`;
   const id = `${prefix}.${d!.root}`;
   const kp = KeyPair.fromRandom("ed25519");
   saveCredential(id, kp);
   await account(d!.root).createSubAccount({ accountOrPrefix: prefix, publicKey: kp.getPublicKey(), nearToTransfer: nearToYocto(near) });
+  await waitForKey(id, kp.getPublicKey().toString());
   const { auth } = await createSoftwareAuthenticator(d!.rp_id, ORIGIN);
   await call(id, "register_passkey", { public_key: toBase64(auth.publicKeyCompressed), kind: "DemoSoftware" });
   // The agent gets a function-call key: escrow contract only, negotiation methods only.
