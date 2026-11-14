@@ -1,9 +1,11 @@
 "use client";
 // The action box under the escrow steps: register a passkey, then approve the
 // step that is waiting for the current persona.
+import { Fingerprint } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { PERSONAS, type PersonaId } from "@/lib/personas";
-import { useT, type MsgKey } from "@/lib/i18n";
+import { SwitchPersona } from "@/components/switch-persona";
+import { useT } from "@/lib/i18n";
 import { passkeysSupported, registerDemoKey, registerPlatformPasskey, signChallenge, type PasskeyKind } from "@/lib/webauthn/browser";
 
 type Challenge =
@@ -12,7 +14,7 @@ type Challenge =
   | { step: string; passkey: true; message: string; challenge: string; credentialId: string; kind: PasskeyKind };
 
 
-export function EscrowAction({ dealId, persona, waitingFor, onDone }: { dealId: string; persona: PersonaId; waitingFor: string | null; onDone: () => void }) {
+export function EscrowAction({ dealId, persona, waitingFor, waitingId, onDone }: { dealId: string; persona: PersonaId; waitingFor: string | null; waitingId?: PersonaId; onDone: () => void }) {
   const { t } = useT();
   const [ch, setCh] = useState<Challenge | null>(null);
   const [cfg, setCfg] = useState<{ rpId: string } | null>(null);
@@ -67,55 +69,60 @@ export function EscrowAction({ dealId, persona, waitingFor, onDone }: { dealId: 
       const r = await fetch(`/api/deals/${dealId}/approve`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ persona, step: ch.step, assertion }),
+        body: JSON.stringify({ persona, action: ch.step, assertion }),
       });
       if (!r.ok) throw new Error((await r.json()).error ?? "approval failed");
       onDone();
       await refresh();
     });
 
+  const LABEL: Record<string, string> = {
+    seller_approve: "Approve with passkey",
+    fund: "Lock funds with passkey",
+    handover: "Mark as handed over",
+    confirm_receipt: "Confirm receipt with passkey",
+  };
+
   if (!ch) {
-    return waitingFor ? <p className="text-sm text-muted">{t("esc.waiting", { name: waitingFor })}</p> : null;
+    if (!waitingFor) return null;
+    return (
+      <div className="rounded-[12px] border border-line bg-bg p-4">
+        <SwitchPersona note={`Waiting for ${waitingFor}.`} to={waitingId ? [waitingId] : []} />
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-accent p-4">
+    <div className="flex flex-col gap-3">
       {ch.passkey && ("needsRegistration" in ch || replacing) ? (
         <>
-          <p className="text-sm">
-            {t("esc.yourTurn")} <b>{t(`esc.${ch.step}.short` as MsgKey)}</b>. {t("esc.createFirst", { name: PERSONAS[persona].name })}
-          </p>
+          <p className="text-sm text-muted">Set up a passkey once. Every payment step will ask for it.</p>
           <div className="flex flex-wrap gap-2">
-            <button className="btn" disabled={busy || !passkeysSupported()} onClick={() => register("Platform")}>
-              {t("esc.createPasskey")}
+            <button className="btn btn-lg" disabled={busy || !passkeysSupported()} onClick={() => register("Platform")}>
+              <Fingerprint size={18} aria-hidden /> Create passkey
             </button>
-            <button className="btn-ghost" disabled={busy} onClick={() => register("DemoSoftware")}>
-              {t("esc.useDemo")}
+            <button className="btn-ghost btn-lg" disabled={busy} onClick={() => register("DemoSoftware")}>
+              Use demo key
             </button>
           </div>
-          <p className="text-xs text-muted">
-            {t("esc.demoNote")}
-          </p>
         </>
       ) : (
         <>
-          <button className="btn self-start" disabled={busy} onClick={approve}>
-            {busy ? t("esc.waitingPasskey") : t(`esc.${ch.step}` as MsgKey)}
+          <button className="btn btn-lg self-start" disabled={busy} onClick={approve}>
+            {ch.passkey && <Fingerprint size={18} aria-hidden />} {busy ? "Waiting for passkey…" : (LABEL[ch.step] ?? ch.step)}
           </button>
           {ch.passkey && "message" in ch && (
-            <div className="text-xs text-muted">
-              <div>
-                {t("esc.signing", { kind: t(ch.kind === "Platform" ? "esc.kindPasskey" : "esc.kindDemo") })}
-              </div>
-              <code className="break-all font-mono">{ch.message}</code>
-              <button className="mt-2 block underline hover:text-fg" disabled={busy} onClick={() => setReplacing(true)}>
-                {t("esc.replace")}
+            <details className="text-xs text-muted">
+              <summary className="cursor-pointer hover:text-fg">What you&apos;re signing ({ch.kind === "Platform" ? "passkey" : "demo key"})</summary>
+              <code className="mt-2 block break-all rounded-[8px] border border-line bg-bg p-2 font-mono">{ch.message}</code>
+              <button className="mt-2 underline hover:text-fg" disabled={busy} onClick={() => setReplacing(true)}>
+                Key not on this device? Register a new one
               </button>
-            </div>
+            </details>
           )}
         </>
       )}
-      {err && <p className="rounded bg-warn-bg px-3 py-2 text-xs text-warn-ink">{err}</p>}
+      {err && <p className="rounded-[8px] bg-bad-soft px-3 py-2 text-xs text-bad">{err}</p>}
     </div>
   );
 }

@@ -115,6 +115,7 @@ export function DealDetail() {
                 dealId={deal.id}
                 persona={persona}
                 waitingFor={WHO[deal.nextStep] === deal.viewerSide ? null : PERSONAS[WHO[deal.nextStep] === "seller" ? deal.seller : deal.buyer].name}
+                waitingId={WHO[deal.nextStep] === "seller" ? deal.seller : deal.buyer}
                 onDone={load}
               />
             ) : (
