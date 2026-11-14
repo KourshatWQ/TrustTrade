@@ -15,6 +15,7 @@
     "e2e:testnet": "tsx scripts/e2e-testnet.ts",
     "oracle:deliver": "tsx scripts/oracle-sim.ts",
     "negotiate": "tsx scripts/negotiate.ts",
+    "seed": "tsx scripts/seed.ts",
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {

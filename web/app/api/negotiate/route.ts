@@ -14,6 +14,7 @@ import { sha256, toHex } from "@/lib/escrow/challenge";
 import { anchorAgreedDeal, chainEnabled } from "@/lib/near/escrow";
 import { addDeal, getListing, publicListing, updateDeal, type DealChain, type StoredListing } from "@/lib/store";
 import type { PersonaId } from "@/lib/personas";
+import { describeAttributes } from "@/lib/listing-attrs";
 
 /** Writes the agreed terms on-chain with the agents' function-call keys. Never throws. */
 async function anchor(listing: StoredListing, buyer: PersonaId, price: number, transcriptHash: string): Promise<DealChain> {
@@ -58,7 +59,14 @@ export async function POST(req: Request) {
   // Raw completions (with the exact bytes needed for TEE signature checks) stay in this function.
   const completions: Completion[] = [];
   const run = runNegotiation({
-    listing: { id: listing.id, title: listing.title, description: listing.description, condition: listing.condition, ask: listing.ask },
+    listing: {
+      id: listing.id,
+      title: listing.title,
+      description: listing.description,
+      condition: listing.condition,
+      attributes: describeAttributes(listing.attributes, listing.condition),
+      ask: listing.ask,
+    },
     seller: { side: "seller", displayName: PERSONAS[listing.seller].name, limit: listing.floor, style: listing.sellerStyle },
     buyer: { side: "buyer", displayName: buyerPersona.name, limit: budget, style },
     backends: { seller: sellerBackend, buyer: buyerBackend },

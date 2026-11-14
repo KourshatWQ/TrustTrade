@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/listings/[id
   return Response.json({
     listing: publicListing(listing),
     // Private settings go to the seller only (demo mode: persona switcher stands in for sign-in).
-    private: isSeller ? { floor: listing.floor, sellerStyle: listing.sellerStyle } : null,
+    private: isSeller ? { floor: listing.floor, sellerStyle: listing.sellerStyle, floorRule: listing.floorRule ?? null } : null,
     deals: dealsForListing(id)
       .filter((d) => isSeller || d.buyer === viewer)
       .map((d) => dealView(d, viewer)),

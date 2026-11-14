@@ -7,13 +7,14 @@ import { usePersona } from "@/components/persona";
 import type { Side, Style } from "@/lib/agents/types";
 import { PERSONAS } from "@/lib/personas";
 import { useT } from "@/lib/i18n";
+import { AttrChips } from "@/components/attr-chips";
 import { InferenceBadge } from "@/components/inference-badge";
 import type { InferenceProof } from "@/lib/agents/attestation";
 import type { DealView, PublicListing } from "@/lib/store";
 
 interface ListingResponse {
   listing: PublicListing;
-  private: { floor: number; sellerStyle: Style } | null;
+  private: { floor: number; sellerStyle: Style; floorRule: { kind: "price"; floor: number } | { kind: "discount"; maxPct: number } | null } | null;
   deals: DealView[];
 }
 
@@ -27,7 +28,7 @@ const LOAD_FAILED = "__load_failed";
 export function ListingView() {
   const { id } = useParams<{ id: string }>();
   const persona = usePersona();
-  const { t, tm } = useT();
+  const { t } = useT();
   const [data, setData] = useState<ListingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Keep the live chat on screen after this negotiation marks the item as agreed.
@@ -55,7 +56,8 @@ export function ListingView() {
           <div className="grid h-56 place-items-center bg-accent-soft text-8xl" aria-hidden>{listing.emoji}</div>
           <div className="flex flex-col gap-2 p-5">
             <h1 className="text-xl font-semibold leading-snug">{listing.title}</h1>
-            <div className="text-sm text-muted">{tm(`cond.${listing.condition}`, listing.condition)} · {t("listing.soldBy", { name: PERSONAS[listing.seller]?.name ?? listing.seller })}</div>
+            <div className="text-sm text-muted">{t("listing.soldBy", { name: PERSONAS[listing.seller]?.name ?? listing.seller })}</div>
+            <AttrChips attributes={listing.attributes} condition={listing.condition} />
             <p className="text-sm">{listing.description}</p>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-xs uppercase tracking-wide text-muted">{t("listing.asking")}</span>
@@ -68,6 +70,12 @@ export function ListingView() {
             <div className="label">{t("listing.private")}</div>
             <p>
               {t("listing.floorStyle", { floor: `${data.private.floor} Ⓝ` })} <strong>{t(`style.${data.private.sellerStyle}`)}</strong>
+              {data.private.floorRule && (
+                <span className="text-muted">
+                  {" "}
+                  ({data.private.floorRule.kind === "discount" ? t("listing.floorRuleDiscount", { pct: data.private.floorRule.maxPct }) : t("listing.floorRulePrice")})
+                </span>
+              )}
             </p>
             <p className="mt-2 text-xs text-muted">{t("listing.privateNote")}</p>
           </div>

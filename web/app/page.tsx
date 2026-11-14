@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { usePersona } from "@/components/persona";
 import { PERSONAS } from "@/lib/personas";
 import { useT } from "@/lib/i18n";
+import { AttrChips } from "@/components/attr-chips";
 import type { PublicListing } from "@/lib/store";
 
 export default function Market() {
   const persona = usePersona();
-  const { t, tm } = useT();
+  const { t } = useT();
   const [listings, setListings] = useState<PublicListing[] | null>(null);
   const load = () => fetch("/api/listings").then((r) => r.json()).then(setListings);
   useEffect(() => {
@@ -56,9 +57,8 @@ export default function Market() {
                   </div>
                   <div className="flex flex-1 flex-col gap-1 p-4">
                     <div className="font-medium leading-snug">{l.title}</div>
-                    <div className="text-xs text-muted">
-                      {tm(`cond.${l.condition}`, l.condition)} · {t("market.by", { name: PERSONAS[l.seller]?.name ?? l.seller })}
-                    </div>
+                    <div className="text-xs text-muted">{t("market.by", { name: PERSONAS[l.seller]?.name ?? l.seller })}</div>
+                    <AttrChips attributes={l.attributes} condition={l.condition} compact />
                     <div className="mt-auto flex items-center justify-between pt-3">
                       <span className="font-mono text-lg font-semibold">{l.ask} Ⓝ</span>
                       {l.status === "sold" ? (

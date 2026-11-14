@@ -9,6 +9,8 @@ import type { GuardEvent, Outcome, PublicTranscript, Style } from "./agents/type
 import type { PersonaId } from "./personas";
 import type { InferenceProof } from "./agents/attestation";
 import type { ChainTx } from "./near/escrow";
+import type { ListingAttributes } from "./listing-attrs";
+import { floorFrom, SEED_LISTINGS, type SeedListing } from "./seed";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const STORE_FILE = path.join(DATA_DIR, "store.json");
@@ -22,10 +24,14 @@ export interface StoredListing {
   /** Public asking price in NEAR. */
   ask: number;
   emoji: string;
+  /** Structured attributes (category, colour, size, usage). Absent on listings created before they existed. */
+  attributes?: ListingAttributes;
   status: "listed" | "sold";
   createdAt: number;
-  /** PRIVATE — seller only. */
+  /** PRIVATE — seller only. The effective minimum price the guard enforces. */
   floor: number;
+  /** PRIVATE — seller only. How the seller expressed the floor (absolute price or max discount). */
+  floorRule?: SeedListing["floorRule"];
   /** PRIVATE — seller only. */
   sellerStyle: Style;
 }
@@ -98,15 +104,13 @@ interface Store {
   passkeys?: Partial<Record<PersonaId, StoredPasskey>>;
 }
 
-const SEED: Omit<StoredListing, "createdAt" | "status">[] = [
-  { id: "trek-fx2", seller: "alice", title: "Trek FX 2 hybrid bike (2023), size M", description: "Lightly used commuter bike. New tires in spring, minor scuff on the top tube. Pick-up in person.", condition: "good", ask: 1.2, emoji: "🚲", floor: 0.95, sellerStyle: "firm" },
-  { id: "fuji-x100", seller: "alice", title: "Fujifilm X100V camera + 2 batteries", description: "Shutter count ~8k. Comes with original box, strap and two spare batteries.", condition: "like new", ask: 2.5, emoji: "📷", floor: 2.1, sellerStyle: "balanced" },
-  { id: "eames-chair", seller: "alice", title: "Mid-century lounge chair (replica)", description: "Walnut veneer, black leather. Very comfortable, small mark on the left armrest.", condition: "fair", ask: 0.8, emoji: "🪑", floor: 0.55, sellerStyle: "friendly" },
-];
 
 function seed(): Store {
   const now = Date.now();
-  return { listings: SEED.map((l, i) => ({ ...l, status: "listed", createdAt: now - i * 3_600_000 })), deals: [] };
+  return {
+    listings: SEED_LISTINGS.map((l, i) => ({ ...l, floor: floorFrom(l.ask, l.floorRule), status: "listed" as const, createdAt: now - i * 3_600_000 })),
+    deals: [],
+  };
 }
 
 function load(): Store {
@@ -160,12 +164,13 @@ export function nextEscrowStep(d: StoredDeal): EscrowStep | null {
   return ESCROW_STEPS.find((k) => !d.escrow?.[k]) ?? null;
 }
 
-export type PublicListing = Omit<StoredListing, "floor" | "sellerStyle">;
+export type PublicListing = Omit<StoredListing, "floor" | "sellerStyle" | "floorRule">;
 
 export function publicListing(l: StoredListing): PublicListing {
-  const { floor: _f, sellerStyle: _s, ...rest } = l;
+  const { floor: _f, sellerStyle: _s, floorRule: _r, ...rest } = l;
   void _f;
   void _s;
+  void _r;
   return rest;
 }
 

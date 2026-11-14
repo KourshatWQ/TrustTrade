@@ -23,6 +23,8 @@ export interface ListingInfo {
   title: string;
   description: string;
   condition: string;
+  /** Public structured attributes as one line (category, colour, size, usage). */
+  attributes?: string;
   /** Public asking price in NEAR. */
   ask: number;
 }
