@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { GuardEvent, Outcome, PublicTranscript, Style } from "./agents/types";
-import type { PersonaId } from "./personas";
+import { PERSONAS, type PersonaId } from "./personas";
 import type { InferenceProof } from "./agents/attestation";
 import type { ChainTx } from "./near/escrow";
 import type { ListingAttributes } from "./listing-attrs";
@@ -128,10 +128,14 @@ function save(s: Store) {
   fs.writeFileSync(STORE_FILE, JSON.stringify(s, null, 2));
 }
 
-export function resetStore() {
-  // Passkeys belong to the person, not the demo data: keep them across resets.
-  const passkeys = load().passkeys;
-  save({ ...seed(), passkeys });
+/**
+ * Restores the seeded listings and clears all deals.
+ * `keepPasskeys` (the in-app reset) keeps registered passkeys; `npm run seed`
+ * starts fully clean so each device registers its own passkey on first approval.
+ */
+export function resetStore(opts: { keepPasskeys?: boolean } = {}) {
+  const passkeys = opts.keepPasskeys ? load().passkeys : undefined;
+  save({ ...seed(), ...(passkeys ? { passkeys } : {}) });
 }
 
 export function getPasskey(persona: PersonaId): StoredPasskey | undefined {
@@ -219,10 +223,11 @@ export function getDeal(id: string): StoredDeal | undefined {
   return load().deals.find((d) => d.id === id);
 }
 
+/** A persona's deals, newest first; deals with the prompt-injecting demo buyer go last. */
 export function dealsFor(persona: PersonaId): StoredDeal[] {
   return load()
     .deals.filter((d) => d.seller === persona || d.buyer === persona)
-    .sort((a, b) => b.createdAt - a.createdAt);
+    .sort((a, b) => Number(!!PERSONAS[a.buyer]?.adversarial) - Number(!!PERSONAS[b.buyer]?.adversarial) || b.createdAt - a.createdAt);
 }
 
 export function dealsForListing(listingId: string): StoredDeal[] {

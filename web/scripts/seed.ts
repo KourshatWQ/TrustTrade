@@ -1,15 +1,23 @@
 /**
- * Resets the local demo store (web/.data/store.json) to the seeded listings and
- * clears all negotiation records. Passkeys registered in the store are kept.
+ * Resets the local demo store (web/.data/store.json) to a clean start: the seeded
+ * listings (all sold by Alice), no deals, and no registered passkeys. Each device
+ * registers its own passkey (Windows Hello, Touch ID…) at its first approval.
  *
- *   npm run seed
+ *   npm run seed                      # clean start
+ *   npm run seed -- --keep-passkeys   # keep passkeys already registered
  *
- * The same reset is available in the UI ("Reset demo data") and at POST /api/demo/reset.
+ * The in-app "Reset demo data" (POST /api/demo/reset) keeps passkeys.
  */
 import { listListings, resetStore } from "../lib/store";
+import { PERSONAS } from "../lib/personas";
 
-resetStore();
+const keepPasskeys = process.argv.includes("--keep-passkeys");
+resetStore({ keepPasskeys });
 const rows = listListings();
+const roles = Object.values(PERSONAS)
+  .map((p) => `${p.name} = ${p.adversarial ? "buyer (prompt injection demo)" : p.role}`)
+  .join(", ");
+console.log(`Clean demo store: ${roles}. No deals. Passkeys ${keepPasskeys ? "kept" : "cleared"}.`);
 console.log(`Seeded ${rows.length} listings:\n`);
 for (const l of rows) {
   const a = l.attributes;
