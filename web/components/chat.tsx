@@ -23,7 +23,7 @@ export function Chat({ messages, names, typing }: { messages: ChatMessage[]; nam
           <div className={`max-w-[85%] rounded-2xl border border-line px-4 py-2.5 ${m.side === "buyer" ? "rounded-br-sm bg-bubble-buyer" : "rounded-bl-sm bg-bubble-seller"}`}>
             <div className="flex items-baseline gap-2">
               <span className={`text-xs font-medium uppercase tracking-wide ${m.type === "accept" ? "text-accent" : m.type === "walk_away" ? "text-bad" : "text-muted"}`}>{t(`chat.${m.type}`)}</span>
-              {m.price !== null && <span className="font-mono text-lg font-semibold">{m.price} Ⓝ</span>}
+              {m.price !== null && <span className="font-mono text-lg font-semibold">{m.price} NEAR</span>}
             </div>
             <p className="mt-0.5 text-sm break-words">{m.message}</p>
           </div>

@@ -34,10 +34,25 @@ export default function Market() {
             {PERSONAS[persona].role === "seller" ? (
               <Link href="/sell" className="text-accent underline">{t("market.listItem")}</Link>
             ) : (
-              <span className="text-muted">{t("market.pickItem")}</span>
+              <Link href="/find" className="text-accent underline">{t("market.findForMe")}</Link>
             )}
           </p>
         )}
+      </section>
+
+      <section aria-labelledby="how">
+        <h2 id="how" className="mb-3 font-medium">{t("how.title")}</h2>
+        <ol className="grid gap-3 sm:grid-cols-3">
+          {([1, 2, 3] as const).map((n) => (
+            <li key={n} className="card flex gap-3 p-4">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-ink">{n}</span>
+              <div>
+                <div className="font-medium">{t(`how.${n}.title`)}</div>
+                <p className="mt-1 text-sm text-muted">{t(`how.${n}.body`)}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section>
@@ -60,7 +75,7 @@ export default function Market() {
                     <div className="text-xs text-muted">{t("market.by", { name: PERSONAS[l.seller]?.name ?? l.seller })}</div>
                     <AttrChips attributes={l.attributes} condition={l.condition} compact />
                     <div className="mt-auto flex items-center justify-between pt-3">
-                      <span className="font-mono text-lg font-semibold">{l.ask} Ⓝ</span>
+                      <span className="font-mono text-lg font-semibold">{l.ask} NEAR</span>
                       {l.status === "sold" ? (
                         <span className="rounded-full bg-line px-2 py-0.5 text-xs text-muted">{t("market.agreed")}</span>
                       ) : (

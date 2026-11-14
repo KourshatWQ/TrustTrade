@@ -6,6 +6,7 @@ import type { Style } from "@/lib/agents/types";
 import { useT } from "@/lib/i18n";
 import { CATEGORIES, CATEGORY_EMOJI, COLORS, CONDITIONS, SIZE_HINTS, type Category, type Color, type Condition } from "@/lib/listing-attrs";
 import { PERSONAS } from "@/lib/personas";
+import { SwitchPersona } from "@/components/switch-persona";
 
 type FloorMode = "price" | "discount";
 
@@ -32,7 +33,7 @@ export default function Sell() {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   if (!persona) return null;
-  if (PERSONAS[persona].role !== "seller") return <p className="text-muted">{t("sell.switch")}</p>;
+  if (PERSONAS[persona].role !== "seller") return <SwitchPersona note={t("sell.switch")} to={["alice"]} />;
 
   const effectiveFloor = Math.round((form.floorMode === "price" ? form.floor : form.ask * (1 - form.maxPct / 100)) * 100) / 100;
 
@@ -142,7 +143,7 @@ export default function Sell() {
             <input aria-label={t("sell.floor")} type="number" min={0.01} step={0.01} className="field max-w-48 font-mono" value={form.floor} onChange={(e) => set("floor", Number(e.target.value))} />
           )}
           <p className="mt-2 text-sm">
-            {t("sell.effectiveFloor")} <span className="font-mono font-semibold">{effectiveFloor} Ⓝ</span>
+            {t("sell.effectiveFloor")} <span className="font-mono font-semibold">{effectiveFloor} NEAR</span>
           </p>
           <p className="mt-1 text-xs text-muted">{t("sell.floorNote")}</p>
         </div>

@@ -33,7 +33,7 @@ export default function Deals() {
                 </div>
               </div>
               {d.outcome.kind === "agreed" ? (
-                <span className="font-mono font-semibold text-accent">{d.outcome.price} Ⓝ</span>
+                <span className="font-mono font-semibold text-accent">{d.outcome.price} NEAR</span>
               ) : (
                 <span className="text-sm text-muted">{t("deals.noDeal")}</span>
               )}

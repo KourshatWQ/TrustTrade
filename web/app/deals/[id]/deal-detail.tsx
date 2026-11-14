@@ -10,6 +10,8 @@ import type { DealView, PublicListing } from "@/lib/store";
 import { EscrowAction } from "./escrow-action";
 import { ChainActions } from "./chain-actions";
 import { InferenceBadge } from "@/components/inference-badge";
+import { SwitchPersona } from "@/components/switch-persona";
+import type { PersonaId } from "@/lib/personas";
 
 type Deal = DealView & { listing: PublicListing | null; chainStatus: string | null };
 
@@ -34,14 +36,19 @@ export function DealDetail() {
   const persona = usePersona();
   const { t } = useT();
   const [deal, setDeal] = useState<Deal | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<PersonaId[] | null>(null);
   const load = useCallback(() => {
     if (!persona) return;
-    fetch(`/api/deals/${id}?persona=${persona}`).then(async (r) => (r.ok ? setDeal(await r.json()) : setErr("hidden")));
+    fetch(`/api/deals/${id}?persona=${persona}`).then(async (r) => {
+      if (r.ok) {
+        setErr(null);
+        setDeal(await r.json());
+      } else setErr(((await r.json().catch(() => ({}))) as { parties?: PersonaId[] }).parties ?? []);
+    });
   }, [id, persona]);
   useEffect(load, [load]);
 
-  if (err) return <p className="text-muted">{t("deal.hidden")}</p>;
+  if (err) return <SwitchPersona note={t("deal.hidden")} to={err} />;
   if (!deal) return <p className="text-muted">{t("loading")}</p>;
   const agreed = deal.outcome.kind === "agreed" ? deal.outcome : null;
 
@@ -57,7 +64,7 @@ export function DealDetail() {
               {PERSONAS[deal.seller].name} → {PERSONAS[deal.buyer].name} · {t("deal.number", { id: deal.id })}
             </div>
           </div>
-          {agreed && <div className="font-mono text-2xl font-semibold text-accent">{agreed.price} Ⓝ</div>}
+          {agreed && <div className="font-mono text-2xl font-semibold text-accent">{agreed.price} NEAR</div>}
         </div>
 
         <div className="card p-5">
@@ -94,7 +101,7 @@ export function DealDetail() {
           </ol>
           {agreed && persona && deal.chain?.dealId && (
             <div className="mt-5">
-              <ChainActions dealId={deal.id} persona={persona} names={{ seller: PERSONAS[deal.seller].name, buyer: PERSONAS[deal.buyer].name }} onDone={load} />
+              <ChainActions dealId={deal.id} persona={persona} parties={{ seller: deal.seller, buyer: deal.buyer }} onDone={load} />
             </div>
           )}
           {agreed && persona && !deal.chain?.dealId && (

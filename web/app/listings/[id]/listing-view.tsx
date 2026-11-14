@@ -8,6 +8,7 @@ import type { Side, Style } from "@/lib/agents/types";
 import { PERSONAS } from "@/lib/personas";
 import { useT } from "@/lib/i18n";
 import { AttrChips } from "@/components/attr-chips";
+import { SwitchPersona } from "@/components/switch-persona";
 import { InferenceBadge } from "@/components/inference-badge";
 import type { InferenceProof } from "@/lib/agents/attestation";
 import type { DealView, PublicListing } from "@/lib/store";
@@ -61,7 +62,7 @@ export function ListingView() {
             <p className="text-sm">{listing.description}</p>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-xs uppercase tracking-wide text-muted">{t("listing.asking")}</span>
-              <span className="font-mono text-2xl font-semibold">{listing.ask} Ⓝ</span>
+              <span className="font-mono text-2xl font-semibold">{listing.ask} NEAR</span>
             </div>
           </div>
         </div>
@@ -69,7 +70,7 @@ export function ListingView() {
           <div className="card p-5 text-sm">
             <div className="label">{t("listing.private")}</div>
             <p>
-              {t("listing.floorStyle", { floor: `${data.private.floor} Ⓝ` })} <strong>{t(`style.${data.private.sellerStyle}`)}</strong>
+              {t("listing.floorStyle", { floor: `${data.private.floor} NEAR` })} <strong>{t(`style.${data.private.sellerStyle}`)}</strong>
               {data.private.floorRule && (
                 <span className="text-muted">
                   {" "}
@@ -86,7 +87,9 @@ export function ListingView() {
         {isSeller ? (
           <SellerHistory deals={data.deals} />
         ) : me.role !== "buyer" ? (
-          <div className="card p-5 text-sm text-muted">{t("listing.switchBuyer")}</div>
+          <div className="card p-5">
+            <SwitchPersona note={t("listing.switchBuyer")} to={["bob", "mallory"]} />
+          </div>
         ) : listing.status !== "listed" && !negotiated ? (
           <div className="card p-5 text-sm">
             {t("listing.alreadyAgreed")}{" "}
@@ -272,7 +275,7 @@ function SellerHistory({ deals }: { deals: DealView[] }) {
   if (!deals.length)
     return (
       <div className="card p-5 text-sm text-muted">
-        {t("listing.noNegotiations")}
+        <SwitchPersona note={t("listing.noNegotiations")} to={["bob", "mallory"]} />
       </div>
     );
   return (

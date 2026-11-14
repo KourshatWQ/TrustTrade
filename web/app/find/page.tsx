@@ -12,6 +12,7 @@ import { useT, type MsgKey } from "@/lib/i18n";
 import { CATEGORIES, CATEGORY_EMOJI, COLORS, CONDITIONS, SIZE_HINTS, type Category, type Color, type Condition } from "@/lib/listing-attrs";
 import type { Importance, Reason } from "@/lib/matching";
 import { PERSONAS } from "@/lib/personas";
+import { SwitchPersona } from "@/components/switch-persona";
 import type { PublicListing } from "@/lib/store";
 
 interface MatchRow {
@@ -57,7 +58,7 @@ export default function Find() {
 
   if (!persona) return null;
   const me = PERSONAS[persona];
-  if (me.role !== "buyer") return <p className="text-muted">{t("find.switch")}</p>;
+  if (me.role !== "buyer") return <SwitchPersona note={t("find.switch")} to={["bob", "mallory"]} />;
 
   const setAttr = <K extends "category" | "color" | "size" | "minCondition" | "maxUsageMonths">(k: K, patch: Partial<(typeof req)[K]>) =>
     setReq((r) => ({ ...r, [k]: { ...r[k], ...patch } }));
@@ -137,7 +138,7 @@ export default function Find() {
     if (r.attr === "color") return tm(`color.${v}`, v);
     if (r.attr === "condition") return v.startsWith("≥ ") ? `≥ ${tm(`cond.${v.slice(2)}`, v.slice(2))}` : tm(`cond.${v}`, v);
     if (r.attr === "usage") return `${v} ${t("find.months")}`;
-    if (r.attr === "price") return `${v} Ⓝ`;
+    if (r.attr === "price") return `${v} NEAR`;
     return v;
   };
 
@@ -254,7 +255,7 @@ export default function Find() {
                     <div className="flex flex-wrap items-baseline gap-2">
                       <span className="text-xs text-muted">#{i + 1}</span>
                       <Link href={`/listings/${m.listing.id}`} className="font-medium hover:underline">{m.listing.title}</Link>
-                      <span className="font-mono text-sm">{m.listing.ask} Ⓝ</span>
+                      <span className="font-mono text-sm">{m.listing.ask} NEAR</span>
                     </div>
                     <ul className="mt-1 flex flex-wrap gap-1 text-xs">
                       {m.reasons.map((r) => (

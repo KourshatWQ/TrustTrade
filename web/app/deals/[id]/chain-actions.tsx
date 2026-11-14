@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { handoverHash, newHandoverSecret, type ContractAssertion } from "@/lib/escrow/challenge";
 import { useT, type MsgKey } from "@/lib/i18n";
 import { PERSONAS, type PersonaId } from "@/lib/personas";
+import { SwitchPersona } from "@/components/switch-persona";
 import { passkeysSupported, registerDemoKey, registerPlatformPasskey, signChallenge, type PasskeyKind } from "@/lib/webauthn/browser";
 
 type Action = "seller_approve" | "fund" | "handover_code" | "ship" | "deliver" | "confirm_receipt";
@@ -36,7 +37,8 @@ function readCode(dealId: string): string | null {
   }
 }
 
-export function ChainActions({ dealId, persona, names, onDone }: { dealId: string; persona: PersonaId; names: Record<"seller" | "buyer", string>; onDone: () => void }) {
+export function ChainActions({ dealId, persona, parties, onDone }: { dealId: string; persona: PersonaId; parties: Record<"seller" | "buyer", PersonaId>; onDone: () => void }) {
+  const names = { seller: PERSONAS[parties.seller].name, buyer: PERSONAS[parties.buyer].name };
   const { t } = useT();
   const [st, setSt] = useState<ChainState | null>(null);
   const [cfg, setCfg] = useState<{ rpId: string } | null>(null);
@@ -139,7 +141,7 @@ export function ChainActions({ dealId, persona, names, onDone }: { dealId: strin
 
       {done && <p className="text-sm font-medium text-accent">{msg("deal.complete", { name: names.seller })}</p>}
 
-      {!done && st.actions.length === 0 && st.waitingFor && <p className="text-sm text-muted">{msg("esc.waiting", { name: names[st.waitingFor] })}</p>}
+      {!done && st.actions.length === 0 && st.waitingFor && <SwitchPersona note={msg("esc.waiting", { name: names[st.waitingFor] })} to={[parties[st.waitingFor]]} />}
 
       {st.side === "buyer" && myCode && (st.status === "Funded" || st.status === "Shipped") && (
         <div className="rounded-lg border border-accent p-3">
