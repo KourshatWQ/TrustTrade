@@ -4,7 +4,7 @@
 
 Haggling over used stuff, but your AI agent does it 🤝
 
-TrustTrade: agents find the item and negotiate inside a TEE on NEAR AI. Code guards your secret limit. Money only moves with your passkey, verified on-chain by a NEAR escrow.
+TrustTrade: agents find & negotiate inside a NEAR AI TEE. Code guards your secret limit. Money only moves with your passkey, verified on-chain by a NEAR escrow.
 
 @NEARProtocol #NEARHackathon
 
