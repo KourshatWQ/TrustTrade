@@ -1,12 +1,12 @@
 "use client";
-// The action box under the escrow steps: register a passkey, then approve the
-// step that is waiting for the current persona.
+// The action box under the escrow steps: register a passkey on this device if
+// needed, then approve the step that is waiting for the current persona.
 import { Fingerprint } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { PERSONAS, type PersonaId } from "@/lib/personas";
 import { SwitchPersona } from "@/components/switch-persona";
 import { useT } from "@/lib/i18n";
-import { passkeysSupported, registerDemoKey, registerPlatformPasskey, signChallenge, type PasskeyKind } from "@/lib/webauthn/browser";
+import { keyIsOnThisDevice, passkeysSupported, registerDemoKey, registerPlatformPasskey, signChallenge, type PasskeyKind } from "@/lib/webauthn/browser";
 
 type Challenge =
   | { step: string; passkey: false }
@@ -21,6 +21,7 @@ export function EscrowAction({ dealId, persona, waitingFor, waitingId, onDone }:
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
+  const [phase, setPhase] = useState<"registering" | "approving">("approving");
 
   const fetchState = useCallback(async () => {
     const [a, p] = await Promise.all([fetch(`/api/deals/${dealId}/approve?persona=${persona}`), fetch(`/api/passkeys?persona=${persona}`)]);
@@ -37,6 +38,7 @@ export function EscrowAction({ dealId, persona, waitingFor, waitingId, onDone }:
   }, [fetchState]);
 
   const run = async (fn: () => Promise<void>) => {
+    setPhase("registering");
     setBusy(true);
     setErr(null);
     try {
@@ -49,6 +51,22 @@ export function EscrowAction({ dealId, persona, waitingFor, waitingId, onDone }:
     }
   };
 
+  const submit = async (c: Challenge, rpId: string) => {
+    let assertion;
+    if (c.passkey && "challenge" in c) {
+      assertion = await signChallenge({ persona, kind: c.kind, credentialId: c.credentialId, challenge: c.challenge, rpId, origin: window.location.origin });
+    }
+    const r = await fetch(`/api/deals/${dealId}/approve`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ persona, action: c.step, assertion }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error ?? "approval failed");
+    onDone();
+    await refresh();
+  };
+
+  // Register a key on this device, then continue straight to the pending approval.
   const register = (kind: PasskeyKind) =>
     run(async () => {
       if (!cfg) throw new Error("not ready yet");
@@ -56,24 +74,19 @@ export function EscrowAction({ dealId, persona, waitingFor, waitingId, onDone }:
       const r = await fetch("/api/passkeys", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona, ...key }) });
       if (!r.ok) throw new Error((await r.json()).error ?? "registration failed");
       setReplacing(false);
-      await refresh();
+      const s = await fetchState();
+      apply(s);
+      if (s.ch && s.ch.passkey && "challenge" in s.ch) {
+        setPhase("approving");
+        await submit(s.ch, s.cfg?.rpId ?? cfg.rpId);
+      }
     });
 
   const approve = () =>
     run(async () => {
       if (!ch) return;
-      let assertion;
-      if (ch.passkey && "challenge" in ch) {
-        assertion = await signChallenge({ persona, kind: ch.kind, credentialId: ch.credentialId, challenge: ch.challenge, rpId: cfg?.rpId ?? "localhost", origin: window.location.origin });
-      }
-      const r = await fetch(`/api/deals/${dealId}/approve`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ persona, action: ch.step, assertion }),
-      });
-      if (!r.ok) throw new Error((await r.json()).error ?? "approval failed");
-      onDone();
-      await refresh();
+      setPhase("approving");
+      await submit(ch, cfg?.rpId ?? "localhost");
     });
 
   const LABEL: Record<string, string> = {
@@ -92,24 +105,39 @@ export function EscrowAction({ dealId, persona, waitingFor, waitingId, onDone }:
     );
   }
 
+  // The registered key lives elsewhere (another browser or computer): asking for it
+  // would make Windows prompt for a USB security key, so register one here first.
+  const elsewhere = ch.passkey && "challenge" in ch && !keyIsOnThisDevice(persona, ch.kind, ch.credentialId);
+  const needsKey = ch.passkey && ("needsRegistration" in ch || replacing || elsewhere);
+  const stepLabel = LABEL[ch.step] ?? ch.step;
+
   return (
     <div className="flex flex-col gap-3">
-      {ch.passkey && ("needsRegistration" in ch || replacing) ? (
+      {needsKey ? (
         <>
-          <p className="text-sm text-muted">Set up a passkey once. Every payment step will ask for it.</p>
+          <ol className="flex flex-col gap-1 text-sm">
+            <li className="font-medium">1. Register a passkey on this device</li>
+            <li className="text-muted">2. {stepLabel}</li>
+          </ol>
+          <p className="text-sm text-muted">
+            {elsewhere
+              ? `${PERSONAS[persona].name}'s passkey is not on this device. Register one here with Windows Hello, Touch ID or your phone's screen lock; the approval continues right after.`
+              : "Set up a passkey once with Windows Hello, Touch ID or your phone's screen lock. Every payment step will ask for it."}
+          </p>
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-lg" disabled={busy || !passkeysSupported()} onClick={() => register("Platform")}>
-              <Fingerprint size={18} aria-hidden /> Create passkey
+              <Fingerprint size={18} aria-hidden /> {busy ? (phase === "approving" ? "Waiting for approval…" : "Waiting for Windows Hello…") : "Register passkey on this device"}
             </button>
             <button className="btn-ghost btn-lg" disabled={busy} onClick={() => register("DemoSoftware")}>
               Use demo key
             </button>
           </div>
+          {!passkeysSupported() && <p className="text-xs text-muted">This browser has no passkey support. Use the demo key instead.</p>}
         </>
       ) : (
         <>
           <button className="btn btn-lg self-start" disabled={busy} onClick={approve}>
-            {ch.passkey && <Fingerprint size={18} aria-hidden />} {busy ? "Waiting for passkey…" : (LABEL[ch.step] ?? ch.step)}
+            {ch.passkey && <Fingerprint size={18} aria-hidden />} {busy ? "Waiting for passkey…" : stepLabel}
           </button>
           {ch.passkey && "message" in ch && (
             <details className="text-xs text-muted">

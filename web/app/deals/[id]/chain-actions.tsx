@@ -7,7 +7,7 @@ import { handoverHash, newHandoverSecret, type ContractAssertion } from "@/lib/e
 import { useT } from "@/lib/i18n";
 import { PERSONAS, type PersonaId } from "@/lib/personas";
 import { SwitchPersona } from "@/components/switch-persona";
-import { passkeysSupported, registerDemoKey, registerPlatformPasskey, signChallenge, type PasskeyKind } from "@/lib/webauthn/browser";
+import { keyIsOnThisDevice, passkeysSupported, registerDemoKey, registerPlatformPasskey, signChallenge, type PasskeyKind } from "@/lib/webauthn/browser";
 
 type Action = "seller_approve" | "fund" | "handover_code" | "ship" | "deliver" | "confirm_receipt";
 interface ChainState {
@@ -134,6 +134,9 @@ export function ChainActions({ dealId, persona, parties, onDone }: { dealId: str
   const done = st.status === "Released";
   const label = (key: Action | "register", text: string) => (busy === key ? <><Loader2 size={18} className="animate-spin" aria-hidden /> Confirming on NEAR…</> : text);
   const signing = st.challenges && Object.values(st.challenges)[0];
+  // The contract holds one key per account; if it isn't in this browser, signing would
+  // only make Windows ask for a USB security key.
+  const keyElsewhere = st.passkeyElsewhere || (!!st.passkey && !keyIsOnThisDevice(persona, st.passkey.kind, st.passkey.credentialId));
 
   return (
     <div className="flex flex-col gap-4">
@@ -168,14 +171,14 @@ export function ChainActions({ dealId, persona, parties, onDone }: { dealId: str
               <p className="text-sm text-muted">Set up a passkey once. Every payment step will ask for it.</p>
               <div className="flex flex-wrap gap-2">
                 <button className="btn btn-lg" disabled={!!busy || !passkeysSupported()} onClick={() => register("Platform")}>
-                  <Fingerprint size={18} aria-hidden /> {busy === "register" ? "Saving passkey…" : "Create passkey"}
+                  <Fingerprint size={18} aria-hidden /> {busy === "register" ? "Saving passkey…" : "Register passkey on this device"}
                 </button>
                 <button className="btn-ghost btn-lg" disabled={!!busy} onClick={() => register("DemoSoftware")}>
                   Use demo key
                 </button>
               </div>
             </>
-          ) : st.passkeyElsewhere ? (
+          ) : keyElsewhere ? (
             <p className="text-sm text-warn-ink">This account&apos;s passkey is on another device. Use that device to continue.</p>
           ) : (
             <>
