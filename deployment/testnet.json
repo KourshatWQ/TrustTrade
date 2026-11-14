@@ -1,13 +1,13 @@
 {
   "network": "testnet",
-  "root": "trusttrade-a5558a.testnet",
-  "contract": "escrow.trusttrade-a5558a.testnet",
-  "oracle": "oracle.trusttrade-a5558a.testnet",
-  "arbiter": "arbiter.trusttrade-a5558a.testnet",
+  "root": "trusttrade-fd4e72.testnet",
+  "contract": "escrow.trusttrade-fd4e72.testnet",
+  "oracle": "oracle.trusttrade-fd4e72.testnet",
+  "arbiter": "arbiter.trusttrade-fd4e72.testnet",
   "personas": {
-    "alice": "trusttrade-a5558a-alice.testnet",
-    "bob": "trusttrade-a5558a-bob.testnet",
-    "mallory": "trusttrade-a5558a-mallory.testnet"
+    "alice": "trusttrade-fd4e72-alice.testnet",
+    "bob": "trusttrade-fd4e72-bob.testnet",
+    "mallory": "trusttrade-fd4e72-mallory.testnet"
   },
   "rp_id": "localhost",
   "allowed_origins": [
@@ -19,7 +19,7 @@
     "delivery_window_sec": 120,
     "review_window_sec": 120
   },
-  "deployed_at": "2026-11-08T11:46:01.088Z",
-  "deploy_tx": "2pioxug4G99ExJbpjybJDsCbkrPKs3hG7NdXVCYzBuHj",
+  "deployed_at": "2026-11-14T15:37:24.257Z",
+  "deploy_tx": "DQfXNMUqthT3mxQPs4qKR1PNFtk2nu1hyhrCC36UBVF9",
   "p256_live": true
 }
