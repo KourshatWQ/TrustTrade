@@ -44,8 +44,10 @@ export class NearAiBackend implements LlmBackend {
         { role: "user", content: user },
       ],
       temperature: 0.4,
-      max_tokens: 400,
+      max_tokens: 200,
       response_format: { type: "json_object" },
+      // Qwen3 reasoning would spend the token budget on hidden thinking and return no content.
+      chat_template_kwargs: { enable_thinking: false },
     });
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",
@@ -112,8 +114,13 @@ export class MockBackend implements LlmBackend {
   }
 }
 
+/** True when agents should call NEAR AI Cloud: a key is set and AGENT_BACKEND is not "mock". */
+export function liveAgentsEnabled(): boolean {
+  return Boolean(process.env.NEARAI_API_KEY?.trim()) && process.env.AGENT_BACKEND !== "mock";
+}
+
 export function backendFromEnv(opts: { mock?: boolean; compromised?: boolean } = {}): LlmBackend {
-  const key = process.env.NEARAI_API_KEY;
-  if (opts.mock || opts.compromised || !key) return new MockBackend({ compromised: opts.compromised });
+  const key = process.env.NEARAI_API_KEY?.trim();
+  if (opts.mock || opts.compromised || !key || !liveAgentsEnabled()) return new MockBackend({ compromised: opts.compromised });
   return new NearAiBackend(key, process.env.NEARAI_AGENT_MODEL || "Qwen/Qwen3.8-27B", process.env.NEARAI_BASE_URL || undefined);
 }

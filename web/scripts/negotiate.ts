@@ -11,7 +11,8 @@
  */
 import "dotenv/config";
 import { runNegotiation } from "../lib/agents/engine";
-import { backendFromEnv, MockBackend } from "../lib/agents/llm";
+import { proveInference } from "../lib/agents/attestation";
+import { backendFromEnv, MockBackend, type Completion } from "../lib/agents/llm";
 import type { Style } from "../lib/agents/types";
 
 function arg(name: string, def: string): string {
@@ -30,6 +31,7 @@ async function main() {
   const buyerBackend = backendFromEnv({ mock: flag("mock") });
   const sellerBackend = flag("compromised") ? new MockBackend({ compromised: true }) : backendFromEnv({ mock: flag("mock") });
 
+  const completions: Completion[] = [];
   const events = runNegotiation({
     listing: {
       id: "cli-demo",
@@ -43,6 +45,9 @@ async function main() {
     backends: { seller: sellerBackend, buyer: buyerBackend },
     maxRounds: Number(arg("rounds", "6")),
     adversarialBuyer: mallory,
+    onCompletion: (_side, c) => {
+      if (c.completionId) completions.push(c);
+    },
   });
 
   for await (const ev of events) {
@@ -70,6 +75,11 @@ async function main() {
       const leaked = JSON.stringify(ev.transcript).match(new RegExp(`\\b(${floor}|${budget})\\b`));
       console.log(`\nPublic transcript: ${ev.transcript.messages.length} messages; contains a private limit value: ${leaked ? "only as an offered price" : "no"}`);
     }
+  }
+  if (completions.length) {
+    const p = await proveInference(completions[0].model, completions, process.env.NEARAI_API_KEY!.trim());
+    console.log(`\nTEE proof: model ${p.model} · attested signer ${p.signingAddress} (${p.attested ? "TDX quote binds signer + our nonce" : "NOT attested"})`);
+    console.log(`           ${p.verified}/${p.total} completions signed by the attested key${p.errors.length ? ` · issues: ${p.errors.join("; ")}` : ""}`);
   }
 }
 

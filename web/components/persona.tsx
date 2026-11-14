@@ -1,6 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import { isPersona, PERSONAS, type PersonaId } from "@/lib/personas";
+import { useT } from "@/lib/i18n";
 
 const KEY = "tt_persona";
 const listeners = new Set<() => void>();
@@ -37,14 +38,15 @@ export function usePersona(): PersonaId | null {
 
 export function PersonaSwitcher() {
   const current = usePersona();
+  const { t } = useT();
   return (
-    <div className="flex items-center gap-1 rounded-full border border-line bg-panel p-1" role="radiogroup" aria-label="Demo persona">
+    <div className="flex items-center gap-1 rounded-full border border-line bg-panel p-1" role="radiogroup" aria-label={t("header.persona")}>
       {Object.values(PERSONAS).map((p) => (
         <button
           key={p.id}
           role="radio"
           aria-checked={current === p.id}
-          title={p.blurb}
+          title={t(`persona.${p.id}`)}
           onClick={() => setPersona(p.id)}
           className={`rounded-full px-3 py-1 text-sm transition ${current === p.id ? "bg-accent text-accent-ink" : "text-muted hover:text-fg"}`}
         >

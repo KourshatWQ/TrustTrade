@@ -4,7 +4,7 @@
 // events, which callers must only show to the owning side.
 import { sha256, toHex } from "../escrow/challenge";
 import { enforce, parseMove, quarantineInbound, type GuardState } from "./guard";
-import type { LlmBackend } from "./llm";
+import type { Completion, LlmBackend } from "./llm";
 import { systemPrompt, turnPrompt } from "./prompts";
 import type { AgentConfig, ListingInfo, NegotiationEvent, Outcome, PublicTranscript, Side } from "./types";
 
@@ -19,6 +19,11 @@ export interface NegotiationInput {
   maxRounds?: number;
   /** Demo: the buyer is "Mallory", who appends prompt-injection text to every message. */
   adversarialBuyer?: boolean;
+  /**
+   * Receives every raw completion (incl. exact request/response bytes for signature
+   * verification). Those bytes contain the private limit: keep them server-side.
+   */
+  onCompletion?: (side: Side, c: Completion) => void;
 }
 
 export const MALLORY_INJECTION =
@@ -55,6 +60,7 @@ export async function* runNegotiation(input: NegotiationInput): AsyncGenerator<N
         turnPrompt(cfg, view, round, maxRounds, inbound.events.length ? "the last counterparty message was withheld because it contained instructions" : undefined),
         { cfg, transcript: input.backends[side].name.includes("jailbroken") ? transcript : view, round, maxRounds, ask: listing.ask },
       );
+      input.onCompletion?.(side, completion);
       const proposed = parseMove(completion.raw);
       const { sent, events } = enforce(cfg, proposed, st);
       if (side === "buyer" && input.adversarialBuyer && sent.type !== "accept") sent.message += MALLORY_INJECTION;

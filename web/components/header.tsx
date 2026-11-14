@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PersonaSwitcher, usePersona } from "./persona";
 import { PERSONAS } from "@/lib/personas";
+import { LangSwitcher, useT } from "@/lib/i18n";
 
 interface Status {
   agentBackend: "mock" | "nearai";
@@ -13,6 +14,7 @@ interface Status {
 
 export function Header() {
   const persona = usePersona();
+  const { t } = useT();
   const [status, setStatus] = useState<Status | null>(null);
   useEffect(() => {
     fetch("/api/status").then((r) => r.json()).then(setStatus).catch(() => {});
@@ -27,21 +29,22 @@ export function Header() {
           TrustTrade
         </Link>
         <nav className="flex gap-4 text-sm text-muted">
-          <Link href="/" className="hover:text-fg">Market</Link>
-          {persona && PERSONAS[persona].role === "seller" && <Link href="/sell" className="hover:text-fg">Sell</Link>}
-          <Link href="/deals" className="hover:text-fg">My deals</Link>
+          <Link href="/" className="hover:text-fg">{t("nav.market")}</Link>
+          {persona && PERSONAS[persona].role === "seller" && <Link href="/sell" className="hover:text-fg">{t("nav.sell")}</Link>}
+          <Link href="/deals" className="hover:text-fg">{t("nav.deals")}</Link>
         </nav>
         <div className="ml-auto flex flex-wrap items-center gap-3">
           {status && (
             <span className="rounded-full border border-line px-2.5 py-1 font-mono text-xs text-muted" title={status.contract ?? ""}>
-              {status.agentBackend === "mock" ? "agents: MOCK" : `agents: ${status.model} · TEE`} · testnet
+              {status.agentBackend === "mock" ? `${t("header.agents")}: MOCK` : `${t("header.agents")}: ${status.model} · TEE`} · testnet
             </span>
           )}
           <PersonaSwitcher />
+          <LangSwitcher />
         </div>
       </div>
       <div className="border-t border-line bg-warn-bg px-4 py-1.5 text-center text-xs text-warn-ink">
-        Demo mode on NEAR testnet — personas stand in for sign-in. No real funds.
+        {t("header.demoBanner")}
       </div>
     </header>
   );

@@ -1,10 +1,11 @@
 import { connection } from "next/server";
 import { loadDeployment } from "@/lib/near/server";
+import { liveAgentsEnabled } from "@/lib/agents/llm";
 
 export async function GET() {
   await connection();
   const d = loadDeployment();
-  const live = Boolean(process.env.NEARAI_API_KEY);
+  const live = liveAgentsEnabled();
   return Response.json({
     agentBackend: live ? "nearai" : "mock",
     model: live ? process.env.NEARAI_AGENT_MODEL || "Qwen/Qwen3.8-27B" : null,

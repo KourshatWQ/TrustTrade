@@ -7,6 +7,8 @@ import fs from "node:fs";
 import path from "node:path";
 import type { GuardEvent, Outcome, PublicTranscript, Style } from "./agents/types";
 import type { PersonaId } from "./personas";
+import type { InferenceProof } from "./agents/attestation";
+import type { ChainTx } from "./near/escrow";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const STORE_FILE = path.join(DATA_DIR, "store.json");
@@ -42,11 +44,58 @@ export interface StoredDeal {
   createdAt: number;
   /** PRIVATE — each side only sees its own guard interventions. */
   guard: Record<"seller" | "buyer", GuardEvent[]>;
+  /** On-chain escrow record (absent when this machine cannot sign testnet transactions). */
+  chain?: DealChain;
+  /** NEAR AI Cloud TEE proof for the agents' completions (absent in MOCK mode). */
+  inference?: InferenceProof;
+  /** Escrow steps completed after the agents agreed (passkey approvals + handover). */
+  escrow?: Partial<Record<EscrowStep, EscrowRecord>>;
+}
+
+export interface DealChain {
+  /** Listing id used on-chain (unique per demo reset). */
+  listingId: string;
+  dealId: string | null;
+  txs: ChainTx[];
+  error?: string;
+  /** PRIVATE — handover salt the buyer's device sent at funding; used for confirm_handover. Never returned by dealView. */
+  handoverSalt?: string;
+}
+
+/** Escrow steps after "agreed", in order. `handover` needs no passkey. */
+export const ESCROW_STEPS = ["seller_approve", "fund", "handover", "confirm_receipt"] as const;
+export type EscrowStep = (typeof ESCROW_STEPS)[number];
+
+export interface EscrowRecord {
+  at: number;
+  by: PersonaId;
+  /** "local": assertion verified by this server only. "onchain": verified by the escrow contract. */
+  mode: "local" | "onchain";
+  passkeyKind?: PasskeyKind;
+  /** The exact challenge message the passkey signed. */
+  challenge?: string;
+  txHash?: string;
+}
+
+export type PasskeyKind = "Platform" | "DemoSoftware";
+
+export interface StoredPasskey {
+  /** base64url WebAuthn credential id (empty for the demo software key). */
+  credentialId: string;
+  /** base64 uncompressed SEC1 P-256 point (65 bytes) — used for server-side verification. */
+  publicKeyRaw: string;
+  /** base64 compressed point (33 bytes) — the format the contract stores. */
+  publicKeyCompressed: string;
+  kind: PasskeyKind;
+  /** Mirrors the contract's per-account nonce; bumped after every accepted approval. */
+  nonce: number;
+  registeredAt: number;
 }
 
 interface Store {
   listings: StoredListing[];
   deals: StoredDeal[];
+  passkeys?: Partial<Record<PersonaId, StoredPasskey>>;
 }
 
 const SEED: Omit<StoredListing, "createdAt" | "status">[] = [
@@ -76,7 +125,39 @@ function save(s: Store) {
 }
 
 export function resetStore() {
-  save(seed());
+  // Passkeys belong to the person, not the demo data: keep them across resets.
+  const passkeys = load().passkeys;
+  save({ ...seed(), passkeys });
+}
+
+export function getPasskey(persona: PersonaId): StoredPasskey | undefined {
+  return load().passkeys?.[persona];
+}
+
+export function setPasskey(persona: PersonaId, pk: Omit<StoredPasskey, "nonce" | "registeredAt">): StoredPasskey {
+  const s = load();
+  const stored: StoredPasskey = { ...pk, nonce: 0, registeredAt: Date.now() };
+  s.passkeys = { ...s.passkeys, [persona]: stored };
+  save(s);
+  return stored;
+}
+
+/** Records a completed escrow step; bumps the approver's nonce when a passkey was used. */
+export function recordEscrowStep(dealId: string, step: EscrowStep, rec: EscrowRecord): StoredDeal | undefined {
+  const s = load();
+  const d = s.deals.find((x) => x.id === dealId);
+  if (!d) return undefined;
+  d.escrow = { ...d.escrow, [step]: rec };
+  const pk = s.passkeys?.[rec.by];
+  if (rec.passkeyKind && pk) pk.nonce += 1;
+  save(s);
+  return d;
+}
+
+/** The next escrow step for an agreed deal, or null when finished / not agreed. */
+export function nextEscrowStep(d: StoredDeal): EscrowStep | null {
+  if (d.status !== "Agreed") return null;
+  return ESCROW_STEPS.find((k) => !d.escrow?.[k]) ?? null;
 }
 
 export type PublicListing = Omit<StoredListing, "floor" | "sellerStyle">;
@@ -119,6 +200,16 @@ export function addDeal(d: Omit<StoredDeal, "id" | "createdAt">): StoredDeal {
   return deal;
 }
 
+/** Applies `fn` to a stored deal and saves it. */
+export function updateDeal(id: string, fn: (d: StoredDeal) => void): StoredDeal | undefined {
+  const s = load();
+  const d = s.deals.find((x) => x.id === id);
+  if (!d) return undefined;
+  fn(d);
+  save(s);
+  return d;
+}
+
 export function getDeal(id: string): StoredDeal | undefined {
   return load().deals.find((d) => d.id === id);
 }
@@ -150,6 +241,10 @@ export function dealView(d: StoredDeal, viewer: PersonaId | null) {
     outcome,
     viewerSide: side,
     guard: side ? d.guard[side] : [],
+    escrow: d.escrow ?? {},
+    inference: d.inference ?? null,
+    chain: d.chain ? { listingId: d.chain.listingId, dealId: d.chain.dealId, txs: d.chain.txs, error: d.chain.error ?? null } : null,
+    nextStep: nextEscrowStep(d),
   };
 }
 export type DealView = ReturnType<typeof dealView>;

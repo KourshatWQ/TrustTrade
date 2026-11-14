@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { dealView, getDeal, getListing, publicListing } from "@/lib/store";
 import { isPersona } from "@/lib/personas";
+import { getChainDeal } from "@/lib/near/escrow";
 
 export async function GET(req: NextRequest, ctx: RouteContext<"/api/deals/[id]">) {
   const { id } = await ctx.params;
@@ -10,5 +11,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/deals/[id]">
   // Deals are visible to their two parties only.
   if (!d || (viewer !== d.seller && viewer !== d.buyer)) return Response.json({ error: "not found" }, { status: 404 });
   const l = getListing(d.listingId);
-  return Response.json({ ...dealView(d, viewer), listing: l ? publicListing(l) : null });
+  // The escrow contract is the source of truth for anything after the agents agreed.
+  const chainStatus = d.chain?.dealId ? ((await getChainDeal(d.chain.dealId).catch(() => null))?.status ?? null) : null;
+  return Response.json({ ...dealView(d, viewer), listing: l ? publicListing(l) : null, chainStatus });
 }

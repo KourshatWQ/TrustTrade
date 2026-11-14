@@ -5,10 +5,35 @@
 // events and model proposals, never the seller's.
 import { z } from "zod";
 import { runNegotiation } from "@/lib/agents/engine";
-import { backendFromEnv } from "@/lib/agents/llm";
+import { proveInference } from "@/lib/agents/attestation";
+import { backendFromEnv, type Completion } from "@/lib/agents/llm";
 import type { NegotiationEvent, Turn } from "@/lib/agents/types";
 import { isPersona, PERSONAS } from "@/lib/personas";
-import { addDeal, getListing } from "@/lib/store";
+import { accountOf, nearToYoctoString } from "@/lib/escrow/approvals";
+import { sha256, toHex } from "@/lib/escrow/challenge";
+import { anchorAgreedDeal, chainEnabled } from "@/lib/near/escrow";
+import { addDeal, getListing, publicListing, updateDeal, type DealChain, type StoredListing } from "@/lib/store";
+import type { PersonaId } from "@/lib/personas";
+
+/** Writes the agreed terms on-chain with the agents' function-call keys. Never throws. */
+async function anchor(listing: StoredListing, buyer: PersonaId, price: number, transcriptHash: string): Promise<DealChain> {
+  // Unique per demo reset (seed listings get a fresh createdAt), max 64 chars on-chain.
+  const listingId = `${listing.id}-${listing.createdAt.toString(36)}`.slice(0, 64);
+  try {
+    const { dealId, txs } = await anchorAgreedDeal({
+      listingId,
+      metadataHash: toHex(await sha256(JSON.stringify(publicListing(listing)))),
+      askYocto: nearToYoctoString(listing.ask),
+      seller: accountOf(listing.seller),
+      buyer: accountOf(buyer),
+      priceYocto: nearToYoctoString(price),
+      transcriptHash,
+    });
+    return { listingId, dealId, txs };
+  } catch (e) {
+    return { listingId, dealId: null, txs: [], error: (e as Error).message.slice(0, 300) };
+  }
+}
 
 const Body = z.object({
   listingId: z.string(),
@@ -30,12 +55,15 @@ export async function POST(req: Request) {
   const sellerBackend = backendFromEnv();
   const buyerBackend = backendFromEnv();
   const mock = sellerBackend.name.startsWith("MOCK");
+  // Raw completions (with the exact bytes needed for TEE signature checks) stay in this function.
+  const completions: Completion[] = [];
   const run = runNegotiation({
     listing: { id: listing.id, title: listing.title, description: listing.description, condition: listing.condition, ask: listing.ask },
     seller: { side: "seller", displayName: PERSONAS[listing.seller].name, limit: listing.floor, style: listing.sellerStyle },
     buyer: { side: "buyer", displayName: buyerPersona.name, limit: budget, style },
     backends: { seller: sellerBackend, buyer: buyerBackend },
     adversarialBuyer: buyerPersona.adversarial,
+    onCompletion: (_side, c) => completions.push(c),
   });
 
   const enc = new TextEncoder();
@@ -51,7 +79,9 @@ export async function POST(req: Request) {
             send(forBuyer(ev));
             if (mock) await new Promise((r) => setTimeout(r, 650)); // pacing so the demo is watchable
           } else if (ev.type === "end") {
+            const inference = mock ? undefined : await proveInference(completions[0]?.model ?? "", completions, process.env.NEARAI_API_KEY!.trim());
             const deal = addDeal({
+              inference,
               listingId: listing.id,
               seller: listing.seller,
               buyer: persona,
@@ -61,8 +91,16 @@ export async function POST(req: Request) {
               backend: sellerBackend.name,
               guard: { seller: sellerGuard, buyer: buyerGuard },
             });
+            let chain: DealChain | null = null;
+            if (ev.outcome.kind === "agreed" && chainEnabled()) {
+              send({ type: "anchoring" });
+              chain = await anchor(listing, persona, ev.outcome.price, ev.outcome.transcriptHash);
+              updateDeal(deal.id, (d) => {
+                d.chain = chain!;
+              });
+            }
             const outcome = ev.outcome.kind === "agreed" ? ev.outcome : { kind: "no_deal", reason: ev.outcome.reason, rounds: ev.outcome.rounds, summary: ev.outcome.summaries.buyer };
-            send({ type: "end", outcome, dealId: deal.id, sellerGuardCount: sellerGuard.length });
+            send({ type: "end", outcome, dealId: deal.id, sellerGuardCount: sellerGuard.length, inference: inference ?? null, chain: chain ? { dealId: chain.dealId, txs: chain.txs, error: chain.error ?? null } : null });
           } else send(ev);
         }
       } catch (e) {

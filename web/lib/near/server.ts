@@ -76,7 +76,16 @@ export async function accountExists(accountId: string): Promise<boolean> {
 }
 
 export async function view<T>(contractId: string, method: string, args: Record<string, unknown> = {}): Promise<T> {
-  return (await provider.callFunction({ contractId, method, args })) as T;
+  // Public RPC endpoints occasionally drop a request (DNS / socket errors): retry reads.
+  for (let i = 0; ; i++) {
+    try {
+      return (await provider.callFunction({ contractId, method, args })) as T;
+    } catch (e) {
+      const transient = /fetch failed|ENOTFOUND|ECONNRESET|ETIMEDOUT|socket hang up|503|502/i.test(String((e as Error)?.message) + String((e as { cause?: unknown })?.cause));
+      if (!transient || i >= 2) throw e;
+      await new Promise((r) => setTimeout(r, 600 * (i + 1)));
+    }
+  }
 }
 
 export function loadDeployment(): Deployment | null {
