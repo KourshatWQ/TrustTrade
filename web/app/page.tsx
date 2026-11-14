@@ -1,93 +1,70 @@
-"use client";
+import { ArrowRight, Bot, Fingerprint, Landmark, ListPlus, LockKeyhole, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { usePersona } from "@/components/persona";
-import { PERSONAS } from "@/lib/personas";
-import { useT } from "@/lib/i18n";
-import { AttrChips } from "@/components/attr-chips";
-import type { PublicListing } from "@/lib/store";
 
-export default function Market() {
-  const persona = usePersona();
-  const { t } = useT();
-  const [listings, setListings] = useState<PublicListing[] | null>(null);
-  const load = () => fetch("/api/listings").then((r) => r.json()).then(setListings);
-  useEffect(() => {
-    load();
-  }, []);
+const STEPS = [
+  { icon: ListPlus, title: "List or request", body: "Sellers list an item, buyers describe what they want. Each sets a private price limit." },
+  { icon: Bot, title: "Agents negotiate", body: "AI agents find the best match and haggle in the open. Code keeps them inside your limit." },
+  { icon: Fingerprint, title: "Approve with passkey", body: "Funds move only after you approve with Face ID, Touch ID or Windows Hello." },
+];
 
-  async function reset() {
-    await fetch("/api/demo/reset", { method: "POST" });
-    load();
-  }
+const TRUST = [
+  { icon: Fingerprint, title: "Biometric approval", body: "Every payment step needs your passkey, verified by the smart contract." },
+  { icon: Landmark, title: "Escrow on NEAR", body: "Money sits in escrow until the item changes hands." },
+  { icon: LockKeyhole, title: "Private AI limits", body: "Your limits stay in a secure enclave, never shared with the other side." },
+];
 
+export default function Home() {
   return (
-    <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight">{t("market.title")}</h1>
-        <p className="max-w-2xl text-muted">
-          {t("market.intro")}
+    <div className="flex flex-col gap-16 sm:gap-20">
+      <section className="flex flex-col items-start gap-6 pt-4 sm:pt-10">
+        <span className="badge badge-blue">
+          <ShieldCheck size={14} aria-hidden /> Second-hand marketplace on NEAR
+        </span>
+        <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-fg sm:text-5xl">Let AI agents negotiate. You just approve.</h1>
+        <p className="max-w-2xl text-lg text-muted">
+          Your agent finds the right item and gets you a fair price. Nothing is paid until you approve with your passkey.
         </p>
-        {persona && (
-          <p className="text-sm">
-            {t("market.youAre")} <strong>{PERSONAS[persona].name}</strong> — {t(`persona.${persona}`).toLowerCase()}.{" "}
-            {PERSONAS[persona].role === "seller" ? (
-              <Link href="/sell" className="text-accent underline">{t("market.listItem")}</Link>
-            ) : (
-              <Link href="/find" className="text-accent underline">{t("market.findForMe")}</Link>
-            )}
-          </p>
-        )}
+        <div className="flex flex-wrap gap-3">
+          <Link href="/market" className="btn btn-lg">
+            Browse marketplace <ArrowRight size={18} aria-hidden />
+          </Link>
+          <Link href="/find" className="btn-ghost btn-lg">
+            Create a request
+          </Link>
+        </div>
       </section>
 
       <section aria-labelledby="how">
-        <h2 id="how" className="mb-3 font-medium">{t("how.title")}</h2>
-        <ol className="grid gap-3 sm:grid-cols-3">
-          {([1, 2, 3] as const).map((n) => (
-            <li key={n} className="card flex gap-3 p-4">
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-ink">{n}</span>
-              <div>
-                <div className="font-medium">{t(`how.${n}.title`)}</div>
-                <p className="mt-1 text-sm text-muted">{t(`how.${n}.body`)}</p>
+        <h2 id="how" className="text-2xl font-semibold tracking-tight">How it works</h2>
+        <ol className="mt-6 grid gap-4 md:grid-cols-3">
+          {STEPS.map((s, i) => (
+            <li key={s.title} className="card flex flex-col gap-3 p-6">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-[8px] bg-accent-soft text-accent">
+                  <s.icon size={20} aria-hidden />
+                </span>
+                <span className="text-xs font-medium text-muted">Step {i + 1}</span>
               </div>
+              <h3 className="font-semibold">{s.title}</h3>
+              <p className="text-sm text-muted">{s.body}</p>
             </li>
           ))}
         </ol>
       </section>
 
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-medium">{t("market.listings")}</h2>
-          <button onClick={reset} className="text-xs text-muted underline hover:text-fg">{t("market.reset")}</button>
-        </div>
-        {!listings ? (
-          <p className="text-muted">{t("loading")}</p>
-        ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {listings.map((l) => (
-              <li key={l.id}>
-                <Link href={`/listings/${l.id}`} className="card flex h-full flex-col overflow-hidden transition hover:border-accent">
-                  <div className="grid h-36 place-items-center bg-accent-soft text-6xl" aria-hidden>
-                    {l.emoji}
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1 p-4">
-                    <div className="font-medium leading-snug">{l.title}</div>
-                    <div className="text-xs text-muted">{t("market.by", { name: PERSONAS[l.seller]?.name ?? l.seller })}</div>
-                    <AttrChips attributes={l.attributes} condition={l.condition} compact />
-                    <div className="mt-auto flex items-center justify-between pt-3">
-                      <span className="font-mono text-lg font-semibold">{l.ask} NEAR</span>
-                      {l.status === "sold" ? (
-                        <span className="rounded-full bg-line px-2 py-0.5 text-xs text-muted">{t("market.agreed")}</span>
-                      ) : (
-                        <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent">{t("market.open")}</span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+      <section aria-labelledby="trust" className="rounded-[12px] border border-line bg-panel p-6 sm:p-8">
+        <h2 id="trust" className="sr-only">Why it is safe</h2>
+        <ul className="grid gap-6 md:grid-cols-3">
+          {TRUST.map((t) => (
+            <li key={t.title} className="flex gap-4">
+              <t.icon size={22} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+              <div>
+                <h3 className="font-semibold">{t.title}</h3>
+                <p className="mt-1 text-sm text-muted">{t.body}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

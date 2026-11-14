@@ -1,9 +1,10 @@
 "use client";
 // Escrow actions backed by real NEAR testnet transactions. The contract's status
 // decides what each side can do next; passkey actions sign the contract's challenge.
+import { CircleCheck, ExternalLink, Fingerprint, Loader2, Truck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { handoverHash, newHandoverSecret, type ContractAssertion } from "@/lib/escrow/challenge";
-import { useT, type MsgKey } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { PERSONAS, type PersonaId } from "@/lib/personas";
 import { SwitchPersona } from "@/components/switch-persona";
 import { passkeysSupported, registerDemoKey, registerPlatformPasskey, signChallenge, type PasskeyKind } from "@/lib/webauthn/browser";
@@ -129,102 +130,115 @@ export function ChainActions({ dealId, persona, parties, onDone }: { dealId: str
     });
 
   if (!st) return null;
-  const msg = (k: MsgKey, v?: Record<string, string | number>) => t(k, v);
   const can = (a: Action) => st.actions.includes(a);
   const done = st.status === "Released";
+  const label = (key: Action | "register", text: string) => (busy === key ? <><Loader2 size={18} className="animate-spin" aria-hidden /> Confirming on NEAR…</> : text);
+  const signing = st.challenges && Object.values(st.challenges)[0];
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="text-xs text-muted">
-        {msg("chain.status")}: <span className="font-mono font-semibold text-fg">{st.status}</span> · {msg("chain.dealOnChain", { id: st.dealId })}
-      </div>
+    <div className="flex flex-col gap-4">
+      {done && (
+        <div className="flex items-center gap-3 rounded-[12px] border border-ok/20 bg-ok-soft p-4">
+          <CircleCheck size={22} className="shrink-0 text-ok" aria-hidden />
+          <div>
+            <div className="font-semibold">Deal complete</div>
+            <p className="text-sm text-muted">Funds were released to {names.seller}.</p>
+          </div>
+        </div>
+      )}
 
-      {done && <p className="text-sm font-medium text-accent">{msg("deal.complete", { name: names.seller })}</p>}
-
-      {!done && st.actions.length === 0 && st.waitingFor && <SwitchPersona note={msg("esc.waiting", { name: names[st.waitingFor] })} to={[parties[st.waitingFor]]} />}
+      {!done && st.actions.length === 0 && st.waitingFor && (
+        <div className="rounded-[12px] border border-line bg-bg p-4">
+          <SwitchPersona note={`Waiting for ${names[st.waitingFor]}.`} to={[parties[st.waitingFor]]} />
+        </div>
+      )}
 
       {st.side === "buyer" && myCode && (st.status === "Funded" || st.status === "Shipped") && (
-        <div className="rounded-lg border border-accent p-3">
-          <div className="label">{msg("chain.yourCode")}</div>
-          <div className="font-mono text-3xl font-semibold tracking-[0.3em]">{myCode}</div>
-          <p className="mt-1 text-xs text-muted">{msg("chain.yourCodeNote")}</p>
+        <div className="flex flex-col items-start gap-1 rounded-[12px] border border-accent/30 bg-accent-soft p-4">
+          <span className="text-xs font-medium text-accent">Your handover code</span>
+          <span className="font-mono text-3xl font-semibold tracking-[0.3em] text-fg">{myCode}</span>
+          <span className="text-xs text-muted">Show it to the seller only when the item is in your hands.</span>
         </div>
       )}
 
       {st.actions.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-lg border border-accent p-4">
+        <div className="flex flex-col gap-3">
           {st.needsRegistration ? (
             <>
-              <p className="text-sm">{msg("esc.createFirst", { name: PERSONAS[persona].name })}</p>
+              <p className="text-sm text-muted">Set up a passkey once. Every payment step will ask for it.</p>
               <div className="flex flex-wrap gap-2">
-                <button className="btn" disabled={!!busy || !passkeysSupported()} onClick={() => register("Platform")}>
-                  {msg("esc.createPasskey")}
+                <button className="btn btn-lg" disabled={!!busy || !passkeysSupported()} onClick={() => register("Platform")}>
+                  <Fingerprint size={18} aria-hidden /> {busy === "register" ? "Saving passkey…" : "Create passkey"}
                 </button>
-                <button className="btn-ghost" disabled={!!busy} onClick={() => register("DemoSoftware")}>
-                  {msg("esc.useDemo")}
+                <button className="btn-ghost btn-lg" disabled={!!busy} onClick={() => register("DemoSoftware")}>
+                  Use demo key
                 </button>
               </div>
-              <p className="text-xs text-muted">{msg("chain.registerNote")}</p>
             </>
           ) : st.passkeyElsewhere ? (
-            <p className="text-sm text-warn-ink">{msg("chain.passkeyElsewhere")}</p>
+            <p className="text-sm text-warn-ink">This account&apos;s passkey is on another device. Use that device to continue.</p>
           ) : (
             <>
               {can("seller_approve") && (
-                <button className="btn self-start" disabled={!!busy} onClick={() => passkeyAction("seller_approve")}>
-                  {busy === "seller_approve" ? msg("chain.submitting") : msg("esc.seller_approve")}
+                <button className="btn btn-lg self-start" disabled={!!busy} onClick={() => passkeyAction("seller_approve")}>
+                  <Fingerprint size={18} aria-hidden /> {label("seller_approve", "Approve with passkey")}
                 </button>
               )}
               {can("fund") && (
-                <button className="btn self-start" disabled={!!busy} onClick={fundAction}>
-                  {busy === "fund" ? msg("chain.submitting") : msg("esc.fund")}
+                <button className="btn btn-lg self-start" disabled={!!busy} onClick={fundAction}>
+                  <Fingerprint size={18} aria-hidden /> {label("fund", "Lock funds with passkey")}
                 </button>
               )}
               {can("handover_code") && (
                 <div className="flex flex-col gap-2">
                   <label className="label" htmlFor="code">
-                    {msg("chain.enterCode")}
+                    Buyer&apos;s 6-digit handover code
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <input
                       id="code"
-                      className="field max-w-40 font-mono tracking-widest"
+                      className="field max-w-40 font-mono text-lg tracking-[0.3em]"
                       inputMode="numeric"
                       maxLength={6}
                       value={code}
                       onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                       placeholder="000000"
                     />
-                    <button className="btn" disabled={!!busy || code.length !== 6} onClick={() => run("handover_code", async () => void (await post({ action: "handover_code", code })))}>
-                      {busy === "handover_code" ? msg("chain.submitting") : msg("chain.confirmHandover")}
+                    <button className="btn btn-lg" disabled={!!busy || code.length !== 6} onClick={() => run("handover_code", async () => void (await post({ action: "handover_code", code })))}>
+                      {label("handover_code", "Confirm handover")}
                     </button>
                   </div>
-                  {st.handoverAttempts > 0 && <p className="text-xs text-warn-ink">{msg("chain.attempts", { n: st.handoverAttempts })}</p>}
+                  {st.handoverAttempts > 0 && <span className="badge badge-warn self-start">{st.handoverAttempts} wrong attempt(s) · max 5</span>}
                 </div>
               )}
               {can("ship") && (
-                <button className="btn-ghost self-start" disabled={!!busy} onClick={() => run("ship", async () => void (await post({ action: "ship" })))}>
-                  {busy === "ship" ? msg("chain.submitting") : msg("chain.ship")}
+                <button className="inline-flex items-center gap-1.5 self-start text-sm text-accent hover:underline" disabled={!!busy} onClick={() => run("ship", async () => void (await post({ action: "ship" })))}>
+                  <Truck size={16} aria-hidden /> {busy === "ship" ? "Confirming on NEAR…" : "Ship instead"}
                 </button>
               )}
               {can("deliver") && (
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm">{msg("chain.shipped", { ref: st.trackingRef ?? "—" })}</p>
-                  <button className="btn-ghost self-start" disabled={!!busy} onClick={() => run("deliver", async () => void (await post({ action: "deliver" })))}>
-                    {busy === "deliver" ? msg("chain.submitting") : msg("chain.deliver")}
+                <div className="flex flex-col gap-2">
+                  <span className="badge badge-warn self-start">Shipped · {st.trackingRef ?? "tracking pending"}</span>
+                  <button className="btn btn-lg self-start" disabled={!!busy} onClick={() => run("deliver", async () => void (await post({ action: "deliver" })))}>
+                    <Truck size={18} aria-hidden /> {label("deliver", "Simulate carrier delivery")}
                   </button>
                 </div>
               )}
-              {can("confirm_receipt") && (
-                <button className={`${st.status === "Delivered" ? "btn" : "btn-ghost"} self-start`} disabled={!!busy} onClick={() => passkeyAction("confirm_receipt")}>
-                  {busy === "confirm_receipt" ? msg("chain.submitting") : msg("esc.confirm_receipt")}
-                </button>
-              )}
-              {st.challenges && Object.values(st.challenges)[0] && (
-                <div className="text-xs text-muted">
-                  {msg("esc.signing", { kind: msg(st.passkey?.kind === "Platform" ? "esc.kindPasskey" : "esc.kindDemo") })}
-                  <code className="block break-all font-mono">{Object.values(st.challenges)[0]!.message}</code>
-                </div>
+              {can("confirm_receipt") &&
+                (st.status === "Delivered" ? (
+                  <button className="btn btn-lg self-start" disabled={!!busy} onClick={() => passkeyAction("confirm_receipt")}>
+                    <Fingerprint size={18} aria-hidden /> {label("confirm_receipt", "Confirm receipt with passkey")}
+                  </button>
+                ) : (
+                  <button className="inline-flex items-center gap-1.5 self-start text-sm text-accent hover:underline" disabled={!!busy} onClick={() => passkeyAction("confirm_receipt")}>
+                    <Fingerprint size={16} aria-hidden /> {busy === "confirm_receipt" ? "Confirming on NEAR…" : "Got the item? Release funds with passkey"}
+                  </button>
+                ))}
+              {signing && (
+                <details className="text-xs text-muted">
+                  <summary className="cursor-pointer hover:text-fg">What you&apos;re signing</summary>
+                  <code className="mt-2 block break-all rounded-[8px] border border-line bg-bg p-2 font-mono">{signing.message}</code>
+                </details>
               )}
             </>
           )}
@@ -232,11 +246,11 @@ export function ChainActions({ dealId, persona, parties, onDone }: { dealId: str
       )}
 
       {lastTx && (
-        <a className="text-xs text-accent underline" href={lastTx.url} target="_blank" rel="noreferrer">
-          {lastTx.label} ↗
+        <a className="inline-flex items-center gap-1 self-start text-xs text-muted hover:text-accent" href={lastTx.url} target="_blank" rel="noreferrer">
+          {lastTx.label} · view transaction <ExternalLink size={11} aria-hidden />
         </a>
       )}
-      {err && <p className="rounded bg-warn-bg px-3 py-2 text-xs text-warn-ink">{err}</p>}
+      {err && <p className="rounded-[8px] bg-bad-soft px-3 py-2 text-xs text-bad">{err}</p>}
     </div>
   );
 }

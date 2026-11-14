@@ -10,7 +10,8 @@ const listeners = new Set<() => void>();
 
 function read(): Lang {
   try {
-    return localStorage.getItem(KEY) === "tr" ? "tr" : "en";
+    void localStorage; // UI is English-only for now; the TR dictionary is kept for later.
+    return "en";
   } catch {
     return "en";
   }

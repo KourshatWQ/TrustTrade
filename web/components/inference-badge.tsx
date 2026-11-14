@@ -1,21 +1,27 @@
 "use client";
+import { LockKeyhole, TriangleAlert } from "lucide-react";
 import type { InferenceProof } from "@/lib/agents/attestation";
-import { useT } from "@/lib/i18n";
 
-/** "Verified private inference" badge for a negotiation run on NEAR AI Cloud. */
+/** Small "Verified private AI" badge; the attestation details sit behind a disclosure. */
 export function InferenceBadge({ proof }: { proof: InferenceProof | null | undefined }) {
-  const { t } = useT();
   if (!proof) return null;
   const ok = proof.attested && proof.total > 0 && proof.verified === proof.total;
-  const addr = proof.signingAddress ? `${proof.signingAddress.slice(0, 6)}…${proof.signingAddress.slice(-4)}` : "—";
   return (
-    <div className={`rounded-lg border px-3 py-2 text-xs ${ok ? "border-accent bg-accent-soft text-fg" : "border-line bg-warn-bg text-warn-ink"}`}>
-      <div className="font-semibold">{ok ? `🔒 ${t("tee.verified")}` : `⚠ ${t("tee.unverified")}`}</div>
-      <div className="mt-0.5 text-muted">
-        {t("tee.detail", { verified: proof.verified, total: proof.total, model: proof.model, addr })}
+    <details className="group text-xs">
+      <summary className={`badge cursor-pointer list-none ${ok ? "badge-ok" : "badge-warn"}`}>
+        {ok ? <LockKeyhole size={12} aria-hidden /> : <TriangleAlert size={12} aria-hidden />}
+        {ok ? "Verified private AI" : "AI not verified"}
+      </summary>
+      <div className="mt-2 rounded-[8px] border border-line bg-bg p-3 text-muted">
+        <p>
+          {proof.verified}/{proof.total} agent replies signed inside a TEE by <span className="font-mono">{proof.model}</span>.
+        </p>
+        <p className="mt-1 break-all">
+          Attested signer: <span className="font-mono">{proof.signingAddress ?? "—"}</span>
+        </p>
+        <p className="mt-1">Intel TDX quote binds the signing key to a fresh nonce; each signature covers the exact request and response bytes.</p>
+        {!ok && proof.errors[0] && <p className="mt-1 text-warn-ink">{proof.errors[0]}</p>}
       </div>
-      {!ok && proof.errors.length > 0 && <div className="mt-1">{proof.errors[0]}</div>}
-      <div className="mt-1 text-muted">{t("tee.scope")}</div>
-    </div>
+    </details>
   );
 }

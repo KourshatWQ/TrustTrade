@@ -2,20 +2,19 @@
 import { useT } from "@/lib/i18n";
 import type { ListingAttributes } from "@/lib/listing-attrs";
 
-/** Category · colour · size · condition · usage, as small chips. */
-export function AttrChips({ attributes, condition, compact }: { attributes?: ListingAttributes; condition: string; compact?: boolean }) {
+/** Colour · size · condition · usage as small neutral badges. `max` limits how many are shown. */
+export function AttrChips({ attributes, condition, max }: { attributes?: ListingAttributes; condition: string; max?: number; compact?: boolean }) {
   const { t, tm } = useT();
   const items = [
-    attributes && t(`cat.${attributes.category}`),
-    attributes && t(`color.${attributes.color}`),
-    attributes && t("attr.size", { size: attributes.size }),
     tm(`cond.${condition}`, condition),
+    attributes && t("attr.size", { size: attributes.size }),
+    attributes && t(`color.${attributes.color}`),
     attributes && (attributes.usageMonths === 0 ? t("attr.unused") : t("attr.usage", { n: attributes.usageMonths })),
   ].filter(Boolean) as string[];
   return (
-    <ul className={`flex flex-wrap gap-1 ${compact ? "text-[11px]" : "text-xs"}`}>
-      {items.map((x) => (
-        <li key={x} className="rounded-full border border-line px-2 py-0.5 text-muted">
+    <ul className="flex flex-wrap gap-1.5">
+      {items.slice(0, max ?? items.length).map((x) => (
+        <li key={x} className="badge badge-neutral capitalize">
           {x}
         </li>
       ))}
