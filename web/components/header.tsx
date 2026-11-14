@@ -31,6 +31,7 @@ export function Header() {
         <nav className="flex gap-4 text-sm text-muted">
           <Link href="/" className="hover:text-fg">{t("nav.market")}</Link>
           {persona && PERSONAS[persona].role === "seller" && <Link href="/sell" className="hover:text-fg">{t("nav.sell")}</Link>}
+          {persona && PERSONAS[persona].role === "buyer" && <Link href="/find" className="hover:text-fg">{t("nav.find")}</Link>}
           <Link href="/deals" className="hover:text-fg">{t("nav.deals")}</Link>
         </nav>
         <div className="ml-auto flex flex-wrap items-center gap-3">

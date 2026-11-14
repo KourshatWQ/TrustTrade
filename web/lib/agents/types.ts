@@ -16,6 +16,8 @@ export interface AgentConfig {
   displayName: string;
   limit: number;
   style: Style;
+  /** Buyer only: where the agent should open (≤ limit). Public once offered. */
+  target?: number;
 }
 
 export interface ListingInfo {

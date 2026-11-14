@@ -92,7 +92,7 @@ export class MockBackend implements LlmBackend {
     }
 
     const step = { friendly: 0.35, balanced: 0.25, firm: 0.15 }[cfg.style];
-    const start = cfg.side === "seller" ? ask : round2(ask * 0.6);
+    const start = cfg.side === "seller" ? ask : round2(Math.min(cfg.target ?? ask * 0.6, cfg.limit));
     const anchor = mine ?? start;
     const target = cfg.limit;
     const t = Math.min(1, round / maxRounds + step);
